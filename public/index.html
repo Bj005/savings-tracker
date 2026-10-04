@@ -8,6 +8,17 @@
 </head>
 <body>
 
+  <!-- Viewer password screen (shown before anything else) -->
+  <main id="gate" class="lock">
+    <form id="gate-form" class="card lock-card" hidden>
+      <h1>Suivi d'épargne</h1>
+      <p class="muted">Entrez le mot de passe pour continuer.</p>
+      <input id="gate-input" type="password" autocomplete="current-password" placeholder="Mot de passe" required>
+      <button type="submit" class="btn primary">Entrer</button>
+      <p id="gate-error" class="error" hidden></p>
+    </form>
+  </main>
+
   <!-- Admin password screen -->
   <main id="lock" class="lock" hidden>
     <form id="pin-form" class="card lock-card">
@@ -21,7 +32,7 @@
   </main>
 
   <!-- App -->
-  <div id="app">
+  <div id="app" hidden>
     <header class="topbar">
       <span class="brand">Suivi d'épargne</span>
       <div class="row">

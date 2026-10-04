@@ -6,6 +6,10 @@ import { getStore } from "@netlify/blobs";
 // which then takes priority over the value written here.
 const APP_PASSWORD = process.env.ADMIN_PASSWORD || "2026Bank";
 
+// Viewer password: required to see anything. The admin password also works.
+// Can be overridden with VIEW_PASSWORD in Netlify environment variables.
+const VIEW_PASSWORD = process.env.VIEW_PASSWORD || "Welcome1";
+
 const KEY = "data";
 const EMPTY = { people: [], payments: [] };
 const DEFAULT_YEARLY_GOAL_CENTS = 75_000; // $750
@@ -162,13 +166,16 @@ async function uploadPhoto(store, body) {
 export default async (req) => {
   const store = getStore({ name: "savings", consistency: "strong" });
 
-  // Viewing is public.
   if (req.method === "GET") {
+    // Photos are addressed by the member's random id, which is only known from the protected data.
     const photoId = new URL(req.url).searchParams.get("photo");
     if (photoId) {
       if (!/^[A-Za-z0-9-]{1,64}$/.test(photoId)) return new Response("Not found", { status: 404 });
       return getPhoto(photoId);
     }
+    // Viewing needs the viewer (or admin) password.
+    const view = req.headers.get("x-view");
+    if (view !== VIEW_PASSWORD && view !== APP_PASSWORD) return json({ error: "Mot de passe incorrect." }, 401);
     const data = (await store.get(KEY, { type: "json" })) || structuredClone(EMPTY);
     return json(normalize(data));
   }

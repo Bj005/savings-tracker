@@ -1,5 +1,6 @@
 const API = "/api";
 const PIN_KEY = "savings-pin";
+const VIEW_KEY = "savings-view";
 
 const MAIN_GOAL_CENTS = 1_850_000; // $18,500 — one-time group goal
 const DEFAULT_YEARLY_GOAL_CENTS = 75_000; // $750
@@ -13,6 +14,7 @@ const dateFmt = new Intl.DateTimeFormat("fr-FR", {
 const dayFmt = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short", year: "numeric" });
 
 let pin = "";
+let viewPass = "";
 let isAdmin = false;
 let data = { people: [], payments: [] };
 let currentProfileId = null;
@@ -24,6 +26,9 @@ const fmt = (cents) => money.format(cents / 100);
 function savePin(value) { try { localStorage.setItem(PIN_KEY, value); } catch {} }
 function readPin() { try { return localStorage.getItem(PIN_KEY) || ""; } catch { return ""; } }
 function clearPin() { try { localStorage.removeItem(PIN_KEY); } catch {} }
+function saveView(value) { try { localStorage.setItem(VIEW_KEY, value); } catch {} }
+function readView() { try { return localStorage.getItem(VIEW_KEY) || ""; } catch { return ""; } }
+function clearView() { try { localStorage.removeItem(VIEW_KEY); } catch {} }
 
 // ---------- API ----------
 async function api(method, body, usePin = pin) {
@@ -31,7 +36,7 @@ async function api(method, body, usePin = pin) {
   try {
     res = await fetch(API, {
       method,
-      headers: { "Content-Type": "application/json", "x-pin": usePin },
+      headers: { "Content-Type": "application/json", "x-pin": usePin, "x-view": viewPass || usePin },
       body: body ? JSON.stringify(body) : undefined,
     });
   } catch {
@@ -39,6 +44,11 @@ async function api(method, body, usePin = pin) {
   }
   const result = await res.json().catch(() => ({ error: "Erreur du serveur. Réessayez." }));
   if (res.status === 401) {
+    if (method === "GET") {
+      const err = new Error(result.error || "Mot de passe incorrect.");
+      err.locked = true;
+      throw err;
+    }
     if (isAdmin) setAdmin(false);
     throw new Error(result.error || "Mot de passe incorrect.");
   }
@@ -351,7 +361,7 @@ function renderProfile() {
   const years = yearsOf(person);
   const year = years.at(-1);
   const status = statusOf(year);
-  $("year-title").textContent = `Année ${year.number}`;
+  $("year-title").textContent = "Goal perso par année";
   $("year-status").textContent = status.label;
   $("year-status").className = `pill ${status.cls}`;
   $("year-range").textContent = `Du ${dayFmt.format(new Date(year.start))} au ${dayFmt.format(new Date(year.end))}`;
@@ -583,19 +593,52 @@ $("photo-input").addEventListener("change", async (e) => {
   });
 });
 
-// ---------- Start ----------
-async function start() {
-  render();
-  try {
-    data = await api("GET");
-    $("load-error").hidden = true;
-  } catch (e) {
-    $("load-error").textContent = e.message;
-    $("load-error").hidden = false;
-  }
-  render();
-  const saved = readPin();
-  if (saved) await login(saved, true);
+// ---------- Viewer password ----------
+function showGate(message = "") {
+  $("app").hidden = true;
+  $("lock").hidden = true;
+  $("gate").hidden = false;
+  $("gate-form").hidden = false;
+  $("gate-error").textContent = message;
+  $("gate-error").hidden = !message;
+  $("gate-input").value = "";
+  $("gate-input").focus();
 }
 
-start();
+// Loads the data with the given viewer password. Returns true when it was accepted.
+async function enter(value) {
+  viewPass = value;
+  try {
+    data = await api("GET");
+  } catch (e) {
+    viewPass = "";
+    if (e.locked) {
+      clearView();
+      showGate(value ? e.message : "");
+    } else {
+      showGate(e.message);
+    }
+    return false;
+  }
+  saveView(value);
+  $("gate").hidden = true;
+  $("app").hidden = false;
+  render();
+  const saved = readPin();
+  if (saved && !isAdmin) await login(saved, true);
+  return true;
+}
+
+$("gate-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const btn = e.submitter || e.target.querySelector("button[type=submit]");
+  btn.disabled = true;
+  $("gate-error").hidden = true;
+  await enter($("gate-input").value.trim());
+  btn.disabled = false;
+});
+
+// ---------- Start ----------
+const savedView = readView() || readPin();
+if (savedView) enter(savedView);
+else showGate();
