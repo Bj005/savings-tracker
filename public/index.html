@@ -8,34 +8,65 @@
 </head>
 <body>
 
-  <!-- PIN screen -->
-  <main id="lock" class="lock">
+  <!-- Admin password screen -->
+  <main id="lock" class="lock" hidden>
     <form id="pin-form" class="card lock-card">
-      <h1>Suivi d'épargne</h1>
-      <p class="muted">Entrez le mot de passe pour continuer.</p>
+      <h1>Accès administrateur</h1>
+      <p class="muted">Entrez le mot de passe admin pour ajouter ou modifier des données.</p>
       <input id="pin-input" type="password" autocomplete="current-password" placeholder="Mot de passe" required>
-      <button type="submit" class="btn primary">Déverrouiller</button>
+      <button type="submit" class="btn primary">Se connecter</button>
+      <button id="pin-cancel" type="button" class="btn ghost full">Retour</button>
       <p id="pin-error" class="error" hidden></p>
     </form>
   </main>
 
   <!-- App -->
-  <div id="app" hidden>
+  <div id="app">
     <header class="topbar">
       <span class="brand">Suivi d'épargne</span>
-      <button id="lock-btn" class="btn ghost small" type="button">Verrouiller</button>
+      <div class="row">
+        <span id="admin-badge" class="pill ok" hidden>Admin</span>
+        <button id="admin-btn" class="btn ghost small" type="button">Admin</button>
+        <button id="lock-btn" class="btn ghost small" type="button" hidden>Quitter</button>
+      </div>
     </header>
 
     <nav class="tabs" role="tablist">
-      <button class="tab active" data-view="deposit" type="button">Dépôt</button>
+      <button class="tab active" data-view="dashboard" type="button">Accueil</button>
+      <button class="tab" data-view="deposit" type="button" data-admin hidden>Dépôt</button>
       <button class="tab" data-view="records" type="button">Historique</button>
       <button class="tab" data-view="members" type="button">Membres</button>
     </nav>
 
     <main class="content">
 
-      <!-- Deposit -->
-      <section id="view-deposit" class="view">
+      <p id="load-error" class="error card" hidden></p>
+
+      <!-- Dashboard -->
+      <section id="view-dashboard" class="view">
+        <div class="card">
+          <div class="row-between">
+            <h2>Objectif principal</h2>
+            <span id="main-status" class="pill ok" hidden>Objectif atteint ✓</span>
+          </div>
+          <p class="total"><span id="main-total"></span></p>
+          <p class="muted">sur <span id="main-goal"></span></p>
+          <div class="bar big"><div id="main-bar"></div></div>
+          <div class="row-between small-text">
+            <span id="main-percent"></span>
+            <span id="main-remaining"></span>
+          </div>
+          <p id="main-forecast" class="forecast"></p>
+        </div>
+
+        <div class="card">
+          <h2>Objectifs annuels</h2>
+          <div id="yearly-list"></div>
+        </div>
+      </section>
+
+      <!-- Deposit (admin) -->
+      <section id="view-deposit" class="view" hidden>
         <form id="deposit-form" class="card">
           <h2>Nouveau dépôt</h2>
           <label for="person-select">Membre</label>
@@ -64,11 +95,16 @@
           <div class="card">
             <div class="row-between">
               <h2>Membres</h2>
-              <button id="register-toggle" class="btn primary small" type="button">+ Inscrire</button>
+              <button id="register-toggle" class="btn primary small" type="button" data-admin hidden>+ Inscrire</button>
             </div>
             <form id="register-form" class="register" hidden>
               <label for="name-input">Nom complet</label>
               <input id="name-input" type="text" maxlength="60" placeholder="Nom" required>
+              <label for="goal-input">Objectif annuel (USD)</label>
+              <div class="money">
+                <span>$</span>
+                <input id="goal-input" type="number" inputmode="decimal" min="1" step="0.01" value="750" required>
+              </div>
               <div class="row">
                 <button type="submit" class="btn primary">Enregistrer</button>
                 <button id="register-cancel" type="button" class="btn ghost">Annuler</button>
@@ -80,11 +116,54 @@
 
         <div id="profile" hidden>
           <button id="profile-back" class="btn ghost small back" type="button">&larr; Membres</button>
+
           <div class="card">
-            <h2 id="profile-name"></h2>
-            <p class="muted">Total épargné</p>
+            <div class="profile-head">
+              <div id="profile-avatar"></div>
+              <div class="grow">
+                <h2 id="profile-name"></h2>
+                <p id="profile-since" class="muted small-text"></p>
+              </div>
+            </div>
+            <div class="row admin-actions" data-admin hidden>
+              <button id="edit-toggle" class="btn ghost small" type="button">Modifier</button>
+              <button id="photo-btn" class="btn ghost small" type="button">Changer la photo</button>
+              <input id="photo-input" type="file" accept="image/*" hidden>
+            </div>
+            <form id="edit-form" class="register" hidden>
+              <label for="edit-name">Nom complet</label>
+              <input id="edit-name" type="text" maxlength="60" required>
+              <label for="edit-goal">Objectif annuel (USD)</label>
+              <div class="money">
+                <span>$</span>
+                <input id="edit-goal" type="number" inputmode="decimal" min="1" step="0.01" required>
+              </div>
+              <p class="muted small-text hint">Le nouvel objectif s'applique à l'année en cours et aux suivantes.</p>
+              <div class="row">
+                <button type="submit" class="btn primary">Enregistrer</button>
+                <button id="edit-cancel" type="button" class="btn ghost">Annuler</button>
+              </div>
+            </form>
+            <p class="muted label-top">Total épargné</p>
             <p id="profile-total" class="total"></p>
           </div>
+
+          <div class="card">
+            <div class="row-between">
+              <h3 id="year-title"></h3>
+              <span id="year-status" class="pill"></span>
+            </div>
+            <p id="year-range" class="muted small-text"></p>
+            <p class="year-amount"><span id="year-progress"></span> <span class="muted">/ <span id="year-goal"></span></span></p>
+            <div class="bar"><div id="year-bar"></div></div>
+            <p id="year-detail" class="muted small-text"></p>
+          </div>
+
+          <div id="past-card" class="card">
+            <h3>Années précédentes</h3>
+            <ul id="past-list" class="past"></ul>
+          </div>
+
           <div class="card">
             <h3>Paiements</h3>
             <div id="profile-list"></div>
