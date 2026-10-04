@@ -7,7 +7,9 @@ const DEFAULT_YEARLY_GOAL_CENTS = 75_000; // $750
 const DAY_MS = 24 * 60 * 60 * 1000;
 const YEAR_MS = 365 * DAY_MS; // each member's year = 365 days from their registration
 
-const money = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "USD" });
+// Amounts: "50 $", "18 500 $"; cents only when there are some ("12,50 $").
+const wholeFmt = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 });
+const centsFmt = new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const dateFmt = new Intl.DateTimeFormat("fr-FR", {
   day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
 });
@@ -20,7 +22,8 @@ let data = { people: [], payments: [] };
 let currentProfileId = null;
 
 const $ = (id) => document.getElementById(id);
-const fmt = (cents) => money.format(cents / 100);
+const fmt = (c) => { const cents = c + 0; return `${(cents % 100 === 0 ? wholeFmt : centsFmt).format(cents / 100)}\u00a0$`; };
+const inputAmount = (cents) => (cents % 100 === 0 ? String(cents / 100) : (cents / 100).toFixed(2));
 
 // ---------- Storage of the admin password on this device (convenience only) ----------
 function savePin(value) { try { localStorage.setItem(PIN_KEY, value); } catch {} }
@@ -223,7 +226,7 @@ function editPaymentInline(row, payment) {
   input.min = "0.01";
   input.step = "0.01";
   input.required = true;
-  input.value = (payment.cents / 100).toFixed(2);
+  input.value = inputAmount(payment.cents);
   input.setAttribute("aria-label", "Nouveau montant");
   wrap.appendChild(input);
   const save = el("button", "btn primary small", "OK");
@@ -557,7 +560,7 @@ $("edit-toggle").addEventListener("click", () => {
   const person = personById(currentProfileId);
   if (!person) return;
   $("edit-name").value = person.name;
-  $("edit-goal").value = (currentGoal(person) / 100).toFixed(2);
+  $("edit-goal").value = inputAmount(currentGoal(person));
   $("edit-form").hidden = false;
   $("edit-name").focus();
 });
