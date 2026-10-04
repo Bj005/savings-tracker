@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { getStore } from "@netlify/blobs";
 
 // Password to open the app. Change it here if needed.
@@ -21,7 +22,7 @@ function applyAction(data, body) {
     if (data.people.some((p) => p.name.toLowerCase() === name.toLowerCase())) {
       return `« ${name} » est déjà inscrit(e).`;
     }
-    data.people.push({ id: crypto.randomUUID(), name, created: new Date().toISOString() });
+    data.people.push({ id: randomUUID(), name, created: new Date().toISOString() });
     return null;
   }
 
@@ -32,7 +33,7 @@ function applyAction(data, body) {
     if (!Number.isInteger(cents) || cents <= 0) return "Entrez un montant supérieur à 0.";
     if (cents > 100_000_000) return "Montant trop élevé.";
     data.payments.push({
-      id: crypto.randomUUID(),
+      id: randomUUID(),
       personId: person.id,
       cents,
       date: new Date().toISOString(),
@@ -59,8 +60,9 @@ export default async (req) => {
   try {
     body = await req.json();
   } catch {
-    return json({ error: "Requête invalide." }, 400);
+    body = null;
   }
+  if (!body || typeof body !== "object") return json({ error: "Requête invalide." }, 400);
 
   // Read-modify-write with an ETag check, so two saves at the same moment can't overwrite each other.
   for (let attempt = 0; attempt < 5; attempt++) {

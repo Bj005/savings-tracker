@@ -19,11 +19,16 @@ function clearPin() { try { localStorage.removeItem(PIN_KEY); } catch {} }
 
 // ---------- API ----------
 async function api(method, body) {
-  const res = await fetch(API, {
-    method,
-    headers: { "Content-Type": "application/json", "x-pin": pin },
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  let res;
+  try {
+    res = await fetch(API, {
+      method,
+      headers: { "Content-Type": "application/json", "x-pin": pin },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch {
+    throw new Error("Connexion impossible. Vérifiez votre connexion internet.");
+  }
   const result = await res.json().catch(() => ({ error: "Erreur du serveur. Réessayez." }));
   if (res.status === 401) {
     lock();
