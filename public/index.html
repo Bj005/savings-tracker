@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Suivi d'épargne</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- PIN screen -->
+  <main id="lock" class="lock">
+    <form id="pin-form" class="card lock-card">
+      <h1>Suivi d'épargne</h1>
+      <p class="muted">Entrez le mot de passe pour continuer.</p>
+      <input id="pin-input" type="password" autocomplete="current-password" placeholder="Mot de passe" required>
+      <button type="submit" class="btn primary">Déverrouiller</button>
+      <p id="pin-error" class="error" hidden></p>
+    </form>
+  </main>
+
+  <!-- App -->
+  <div id="app" hidden>
+    <header class="topbar">
+      <span class="brand">Suivi d'épargne</span>
+      <button id="lock-btn" class="btn ghost small" type="button">Verrouiller</button>
+    </header>
+
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-view="deposit" type="button">Dépôt</button>
+      <button class="tab" data-view="records" type="button">Historique</button>
+      <button class="tab" data-view="members" type="button">Membres</button>
+    </nav>
+
+    <main class="content">
+
+      <!-- Deposit -->
+      <section id="view-deposit" class="view">
+        <form id="deposit-form" class="card">
+          <h2>Nouveau dépôt</h2>
+          <label for="person-select">Membre</label>
+          <select id="person-select" required></select>
+          <label for="amount-input">Montant (USD)</label>
+          <div class="money">
+            <span>$</span>
+            <input id="amount-input" type="number" inputmode="decimal" min="0.01" step="0.01" placeholder="0,00" required>
+          </div>
+          <button type="submit" class="btn primary">Enregistrer le dépôt</button>
+          <p id="deposit-empty" class="muted" hidden>Aucun membre pour le moment. Inscrivez d'abord quelqu'un dans l'onglet Membres.</p>
+        </form>
+      </section>
+
+      <!-- Records -->
+      <section id="view-records" class="view" hidden>
+        <div class="card">
+          <h2>Tous les paiements</h2>
+          <div id="records-list"></div>
+        </div>
+      </section>
+
+      <!-- Members -->
+      <section id="view-members" class="view" hidden>
+        <div id="members-home">
+          <div class="card">
+            <div class="row-between">
+              <h2>Membres</h2>
+              <button id="register-toggle" class="btn primary small" type="button">+ Inscrire</button>
+            </div>
+            <form id="register-form" class="register" hidden>
+              <label for="name-input">Nom complet</label>
+              <input id="name-input" type="text" maxlength="60" placeholder="Nom" required>
+              <div class="row">
+                <button type="submit" class="btn primary">Enregistrer</button>
+                <button id="register-cancel" type="button" class="btn ghost">Annuler</button>
+              </div>
+            </form>
+            <ul id="members-list" class="members"></ul>
+          </div>
+        </div>
+
+        <div id="profile" hidden>
+          <button id="profile-back" class="btn ghost small back" type="button">&larr; Membres</button>
+          <div class="card">
+            <h2 id="profile-name"></h2>
+            <p class="muted">Total épargné</p>
+            <p id="profile-total" class="total"></p>
+          </div>
+          <div class="card">
+            <h3>Paiements</h3>
+            <div id="profile-list"></div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
