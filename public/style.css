@@ -325,3 +325,4 @@ form > .btn.primary { width: 100%; margin-top: 16px; }
 #profile-phone a { color: inherit; }
 .payment { flex-wrap: wrap; }
 .payment > .pay-actions { flex-basis: 100%; justify-content: flex-end; gap: 18px; margin-top: 2px; }
+.btn.wa-outline { background: none; border-color: var(--wa); color: var(--wa); text-decoration: none; display: inline-block; }

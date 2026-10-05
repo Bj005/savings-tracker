@@ -87,11 +87,33 @@ function whatsappLink(payment, className, label) {
   const person = personById(payment.personId) || {};
   const digits = String(person.phone || "").replace(/\D/g, "");
   const link = el("a", className, label);
-  link.href = `https://wa.me/${digits}?text=${encodeURIComponent(receiptMessage(payment))}`;
+  link.href = waUrl(digits, receiptMessage(payment));
   link.target = "_blank";
   link.rel = "noopener";
   return link;
 }
+
+// ---------- Month-end reminder (admin) ----------
+function reminderMessage(person, now = new Date()) {
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const year = yearsOf(person).at(-1);
+  const last = paymentsOf(person.id).reduce((m, p) => (p.date > m ? p.date : m), "");
+  const goalLine = year.done
+    ? `${fmt(year.progress)} / ${fmt(year.goal)} (atteint ✓)`
+    : `${fmt(year.progress)} / ${fmt(year.goal)} (reste ${fmt(year.goal - year.progress)})`;
+  return [
+    "Rappel – Suivi d'épargne",
+    `Bonjour ${person.name},`,
+    `La fin du mois approche (${shortDateFmt.format(monthEnd)}). Merci de verser votre contribution.`,
+    `• Total épargné : ${fmt(totalFor(person.id))}`,
+    `• Objectif annuel : ${goalLine}`,
+    `• Dernier dépôt : ${last ? shortDateFmt.format(new Date(last)) : "aucun pour le moment"}`,
+    "Merci pour votre régularité et bonne journée à vous ! 🙏😊",
+  ].join("\n");
+}
+
+const waUrl = (phone, text) =>
+  `https://wa.me/${String(phone || "").replace(/\D/g, "")}?text=${encodeURIComponent(text)}`;
 
 // ---------- Inactivity ----------
 // Days since the member's last deposit (or since registration if they never deposited).
@@ -412,6 +434,7 @@ function renderProfile() {
     tel.href = `tel:${person.phone.replace(/[^+0-9]/g, "")}`;
     phoneEl.replaceChildren("Tél. : ", tel);
   }
+  $("remind-btn").href = waUrl(person.phone, reminderMessage(person));
   const idle = inactivity(person);
   $("profile-alert").hidden = !idle.inactive;
   $("profile-alert").textContent = idle.inactive
