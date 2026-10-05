@@ -14,6 +14,8 @@ const dateFmt = new Intl.DateTimeFormat("fr-FR", {
   day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
 });
 const dayFmt = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short", year: "numeric" });
+const shortDateFmt = new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
+const INACTIVE_DAYS = 30; // red alert after a month without a deposit
 
 let pin = "";
 let viewPass = "";
@@ -66,6 +68,41 @@ const paymentsOf = (id) => data.payments.filter((p) => p.personId === id);
 const totalFor = (id) => paymentsOf(id).reduce((s, p) => s + p.cents, 0);
 const groupTotal = () => data.payments.reduce((s, p) => s + p.cents, 0);
 const byNewest = (a, b) => b.date.localeCompare(a.date);
+
+// ---------- Receipts ----------
+const receiptCode = (payment) =>
+  Number.isInteger(payment.receipt) ? `REC-${String(payment.receipt).padStart(4, "0")}` : "";
+
+function receiptMessage(payment) {
+  const person = personById(payment.personId) || { name: "Inconnu" };
+  // Member's total including this deposit (and everything before it)
+  const total = paymentsOf(payment.personId)
+    .filter((p) => p.date <= payment.date)
+    .reduce((s, p) => s + p.cents, 0);
+  const code = receiptCode(payment);
+  return `${code ? `Reçu ${code} — ` : ""}${person.name}, ${fmt(payment.cents)} reçu le ${shortDateFmt.format(new Date(payment.date))}. Total épargné : ${fmt(total)}.`;
+}
+
+function whatsappLink(payment, className, label) {
+  const person = personById(payment.personId) || {};
+  const digits = String(person.phone || "").replace(/\D/g, "");
+  const link = el("a", className, label);
+  link.href = `https://wa.me/${digits}?text=${encodeURIComponent(receiptMessage(payment))}`;
+  link.target = "_blank";
+  link.rel = "noopener";
+  return link;
+}
+
+// ---------- Inactivity ----------
+// Days since the member's last deposit (or since registration if they never deposited).
+function inactivity(person, now = Date.now()) {
+  const last = paymentsOf(person.id).reduce((m, p) => (p.date > m ? p.date : m), "");
+  const since = last || person.created;
+  const days = Math.floor((now - Date.parse(since)) / DAY_MS);
+  return { days, last, inactive: days > INACTIVE_DAYS };
+}
+
+const inactivityText = (info) => `⚠ Aucun dépôt depuis ${plural(info.days, "jour", "jours")}`;
 
 function goalsOf(person) {
   const goals = Array.isArray(person.goals) && person.goals.length
@@ -186,7 +223,8 @@ function paymentRow(payment, showName) {
 
   const left = el("div");
   if (showName) left.appendChild(el("div", "who", personName(payment.personId)));
-  const when = el("div", "when", dateFmt.format(new Date(payment.date)));
+  const code = receiptCode(payment);
+  const when = el("div", "when", `${code ? `${code} · ` : ""}${dateFmt.format(new Date(payment.date))}`);
   if (payment.edited) when.textContent += " · modifié";
   left.appendChild(when);
 
@@ -208,8 +246,9 @@ function paymentRow(payment, showName) {
         toast("Paiement supprimé");
       });
     });
-    actions.append(edit, del);
-    right.appendChild(actions);
+    actions.append(whatsappLink(payment, "link wa", "WhatsApp"), edit, del);
+    row.append(left, right, actions);
+    return row;
   }
 
   row.append(left, right);
@@ -297,6 +336,11 @@ function renderDashboard(people) {
         setBar(fill, year.progress, year.goal);
         const sub = el("div", "muted small-text", `Année ${year.number} · ${fmt(year.progress)} / ${fmt(year.goal)}`);
         info.append(top, bar, sub);
+        const idle = inactivity(p);
+        if (idle.inactive) {
+          row.classList.add("inactive");
+          info.appendChild(el("div", "alert-text small-text", inactivityText(idle)));
+        }
         row.append(avatar(p), info);
         return row;
       })
@@ -313,6 +357,7 @@ function render() {
   if (!isAdmin) {
     $("register-form").hidden = true;
     $("edit-form").hidden = true;
+    $("deposit-receipt").hidden = true;
   }
 
   renderDashboard(people);
@@ -339,6 +384,7 @@ function render() {
         btn.type = "button";
         const left = el("span", "member-left");
         left.append(avatar(p, "small"), el("span", "", p.name));
+        if (inactivity(p).inactive) left.appendChild(el("span", "pill alert-pill", "Inactif"));
         btn.append(left, el("span", "", `${fmt(totalFor(p.id))} ›`));
         btn.addEventListener("click", () => openProfile(p.id));
         li.appendChild(btn);
@@ -359,6 +405,18 @@ function renderProfile() {
   $("profile-avatar").replaceChildren(avatar(person, "large"));
   $("profile-name").textContent = person.name;
   $("profile-since").textContent = `Inscrit(e) le ${dayFmt.format(new Date(person.created))}`;
+  const phoneEl = $("profile-phone");
+  phoneEl.hidden = !person.phone;
+  if (person.phone) {
+    const tel = el("a", "", person.phone);
+    tel.href = `tel:${person.phone.replace(/[^+0-9]/g, "")}`;
+    phoneEl.replaceChildren("Tél. : ", tel);
+  }
+  const idle = inactivity(person);
+  $("profile-alert").hidden = !idle.inactive;
+  $("profile-alert").textContent = idle.inactive
+    ? `${inactivityText(idle)} (${idle.last ? `dernier dépôt le ${dayFmt.format(new Date(idle.last))}` : "aucun dépôt depuis l'inscription"}).`
+    : "";
   $("profile-total").textContent = fmt(totalFor(person.id));
 
   const years = yearsOf(person);
@@ -519,13 +577,32 @@ $("deposit-form").addEventListener("submit", async (e) => {
   if (!(cents > 0)) return toast("Entrez un montant supérieur à 0.", true);
 
   const btn = e.submitter || e.target.querySelector("button[type=submit]");
+  $("deposit-receipt").hidden = true;
   busy(btn, async () => {
     data = await api("POST", { action: "deposit", personId, cents });
     render();
     toast(`${fmt(cents)} enregistré pour ${personName(personId)}`);
     $("amount-input").value = "";
+    showDepositReceipt(personId);
   });
 });
+
+// After a deposit: show its receipt with a WhatsApp button for the admin.
+function showDepositReceipt(personId) {
+  const payment = paymentsOf(personId).reduce((a, b) => ((b.receipt || 0) > (a?.receipt || 0) ? b : a), null);
+  const box = $("deposit-receipt");
+  if (!payment) { box.hidden = true; return; }
+  const person = personById(personId) || {};
+  const head = el("div", "row-between");
+  head.append(el("h3", "", `Reçu ${receiptCode(payment)}`), el("span", "pill ok", "Enregistré"));
+  const message = el("p", "receipt-text", receiptMessage(payment));
+  const share = whatsappLink(payment, "btn wa-btn", "Partager sur WhatsApp");
+  box.replaceChildren(head, message, share);
+  if (!person.phone) {
+    box.appendChild(el("p", "muted small-text hint", "Aucun numéro enregistré pour ce membre : WhatsApp vous laissera choisir le contact."));
+  }
+  box.hidden = false;
+}
 
 $("register-toggle").addEventListener("click", () => {
   $("register-form").hidden = false;
@@ -536,6 +613,7 @@ $("register-toggle").addEventListener("click", () => {
 $("register-cancel").addEventListener("click", () => {
   $("register-form").hidden = true;
   $("name-input").value = "";
+  $("phone-input").value = "";
 });
 
 $("register-form").addEventListener("submit", async (e) => {
@@ -546,10 +624,11 @@ $("register-form").addEventListener("submit", async (e) => {
   if (!(yearlyGoalCents > 0)) return toast("Entrez un objectif annuel supérieur à 0.", true);
   const btn = e.submitter || e.target.querySelector("button[type=submit]");
   busy(btn, async () => {
-    data = await api("POST", { action: "register", name, yearlyGoalCents });
+    data = await api("POST", { action: "register", name, yearlyGoalCents, phone: $("phone-input").value.trim() });
     render();
     toast(`${name} inscrit(e)`);
     $("name-input").value = "";
+    $("phone-input").value = "";
     $("register-form").hidden = true;
   });
 });
@@ -560,6 +639,7 @@ $("edit-toggle").addEventListener("click", () => {
   const person = personById(currentProfileId);
   if (!person) return;
   $("edit-name").value = person.name;
+  $("edit-phone").value = person.phone || "";
   $("edit-goal").value = inputAmount(currentGoal(person));
   $("edit-form").hidden = false;
   $("edit-name").focus();
@@ -575,7 +655,7 @@ $("edit-form").addEventListener("submit", async (e) => {
   if (!(yearlyGoalCents > 0)) return toast("Entrez un objectif annuel supérieur à 0.", true);
   const btn = e.submitter || e.target.querySelector("button[type=submit]");
   busy(btn, async () => {
-    data = await api("POST", { action: "editMember", personId: currentProfileId, name, yearlyGoalCents });
+    data = await api("POST", { action: "editMember", personId: currentProfileId, name, yearlyGoalCents, phone: $("edit-phone").value.trim() });
     $("edit-form").hidden = true;
     render();
     toast("Profil mis à jour");

@@ -23,6 +23,9 @@ const json = (body, status = 200) =>
   });
 
 const cleanName = (value) => String(value || "").trim().replace(/\s+/g, " ");
+const cleanPhone = (value) => String(value || "").trim().replace(/\s+/g, " ");
+const checkPhone = (phone) =>
+  !phone || /^\+?[0-9 ().-]{6,25}$/.test(phone) ? null : "Numéro de téléphone invalide.";
 const validCents = (cents) => Number.isInteger(cents) && cents > 0 && cents <= MAX_CENTS;
 
 // Members registered before goals existed get the default yearly goal from their registration date.
@@ -33,6 +36,13 @@ function normalize(data) {
     if (!Array.isArray(p.goals) || !p.goals.length) {
       p.goals = [{ from: p.created, cents: DEFAULT_YEARLY_GOAL_CENTS }];
     }
+  }
+  // Receipt numbers: deposits made before receipts existed are numbered by date, oldest first.
+  if (!Number.isInteger(data.nextReceipt)) {
+    const sorted = [...data.payments].sort((a, b) => a.date.localeCompare(b.date));
+    let n = 1;
+    for (const pay of sorted) pay.receipt = n++;
+    data.nextReceipt = n;
   }
   return data;
 }
@@ -56,8 +66,13 @@ function applyAction(data, body) {
     if (nameError) return nameError;
     const goal = body.yearlyGoalCents ?? DEFAULT_YEARLY_GOAL_CENTS;
     if (!validCents(goal)) return "Entrez un objectif annuel supérieur à 0.";
+    const phone = cleanPhone(body.phone);
+    const phoneError = checkPhone(phone);
+    if (phoneError) return phoneError;
     const created = new Date().toISOString();
-    data.people.push({ id: randomUUID(), name, created, goals: [{ from: created, cents: goal }] });
+    const person = { id: randomUUID(), name, created, goals: [{ from: created, cents: goal }] };
+    if (phone) person.phone = phone;
+    data.people.push(person);
     return null;
   }
 
@@ -69,6 +84,13 @@ function applyAction(data, body) {
     if (nameError) return nameError;
     const goal = body.yearlyGoalCents;
     if (!validCents(goal)) return "Entrez un objectif annuel supérieur à 0.";
+    if (body.phone !== undefined) {
+      const phone = cleanPhone(body.phone);
+      const phoneError = checkPhone(phone);
+      if (phoneError) return phoneError;
+      if (phone) person.phone = phone;
+      else delete person.phone;
+    }
     person.name = name;
     if (person.goals[person.goals.length - 1].cents !== goal) {
       person.goals.push({ from: new Date().toISOString(), cents: goal });
@@ -94,6 +116,7 @@ function applyAction(data, body) {
       personId: person.id,
       cents,
       date: new Date().toISOString(),
+      receipt: data.nextReceipt++,
     });
     return null;
   }

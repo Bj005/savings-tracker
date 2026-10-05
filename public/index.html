@@ -90,6 +90,7 @@
           <button type="submit" class="btn primary">Enregistrer le dépôt</button>
           <p id="deposit-empty" class="muted" hidden>Aucun membre pour le moment. Inscrivez d'abord quelqu'un dans l'onglet Membres.</p>
         </form>
+        <div id="deposit-receipt" class="card receipt" hidden></div>
       </section>
 
       <!-- Records -->
@@ -111,6 +112,8 @@
             <form id="register-form" class="register" hidden>
               <label for="name-input">Nom complet</label>
               <input id="name-input" type="text" maxlength="60" placeholder="Nom" required>
+              <label for="phone-input">Téléphone (facultatif)</label>
+              <input id="phone-input" type="tel" inputmode="tel" maxlength="25" placeholder="+243 812 345 678">
               <label for="goal-input">Objectif annuel (USD)</label>
               <div class="money">
                 <span>$</span>
@@ -134,6 +137,7 @@
               <div class="grow">
                 <h2 id="profile-name"></h2>
                 <p id="profile-since" class="muted small-text"></p>
+                <p id="profile-phone" class="muted small-text" hidden></p>
               </div>
             </div>
             <div class="row admin-actions" data-admin hidden>
@@ -144,6 +148,8 @@
             <form id="edit-form" class="register" hidden>
               <label for="edit-name">Nom complet</label>
               <input id="edit-name" type="text" maxlength="60" required>
+              <label for="edit-phone">Téléphone (facultatif)</label>
+              <input id="edit-phone" type="tel" inputmode="tel" maxlength="25" placeholder="+243 812 345 678">
               <label for="edit-goal">Objectif annuel (USD)</label>
               <div class="money">
                 <span>$</span>
@@ -158,6 +164,8 @@
             <p class="muted label-top">Total épargné</p>
             <p id="profile-total" class="total"></p>
           </div>
+
+          <p id="profile-alert" class="alert" hidden></p>
 
           <div class="card">
             <div class="row-between">
